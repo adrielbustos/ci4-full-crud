@@ -4,7 +4,7 @@ namespace App\Models\CICrud\QueryBuldier;
 
 use CodeIgniter\Database\BaseBuilder;
 
-class WhereConnection
+class QueryBuldier
 {
 
     /**

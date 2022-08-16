@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Models\CICrud;
-use App\Models\CICrud\Config\ProjectConfig;
+namespace App\Models\CICrud\Config;
 
-class FConfig implements ProjectConfig {
+class Config implements ProjectConfig {
 
     /**
      * DETERMINA SI SE REALIZA LA BUSQUEDA DE OBJETOS INTERNOS

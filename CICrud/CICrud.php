@@ -2,7 +2,8 @@
 
 namespace App\Models\CICrud;
 
-use App\Models\CICrud\QueryBuldier\WhereConnection;
+use App\Models\CICrud\QueryBuldier\QueryBuldier;
+use App\Models\CICrud\Config\Config;
 
 use App\Models\CICrud\Exceptions\FKConstraintError;
 use App\Models\CICrud\Exceptions\IndeterminateError;
@@ -25,7 +26,7 @@ abstract class CICrud
     /**
      * @var string
      */
-    public const table = '';
+    protected string $table = '';
 
     /**
      * @var array
@@ -36,9 +37,9 @@ abstract class CICrud
      *
      * Load the project config
      *
-     * @var FConfig
+     * @var Config
      */
-    private FConfig $config;
+    private Config $config;
 
     /**
      *
@@ -60,7 +61,7 @@ abstract class CICrud
      * Secondary Query Builder
      *
      */
-    private WhereConnection $whereConnection;
+    private QueryBuldier $queryBuldier;
 
     /**
      *
@@ -70,7 +71,7 @@ abstract class CICrud
      */
     private const attrScape = [
         'BaseConnection',
-        'FConfig',
+        'Config',
         'BaseBuilder',
         'Connection',
         'Builder'
@@ -79,17 +80,17 @@ abstract class CICrud
 
     /**
      * CICrud constructor.
-     * @param FConfig|null $FConfig
+     * @param Config|null $Config
      */
-    protected function __construct (FConfig $FConfig = null)
+    protected function __construct (Config $Config = null)
     {
 
         $this->db = Database::connect();
 
-        if (is_null($FConfig)) {
-            $this->config = new FConfig();
+        if (is_null($Config)) {
+            $this->config = new Config();
         } else {
-            $this->config = $FConfig;
+            $this->config = $Config;
         }
 
     }
@@ -218,7 +219,7 @@ abstract class CICrud
 
                     if (!self::_isValidObject($value)) break;
 
-                    //if ( FConfig::recursiveSearch ) {
+                    //if ( Config::recursiveSearch ) {
                     //    $this->_setInnerJoin($value, $object::table);
                     //}
 
@@ -249,7 +250,7 @@ abstract class CICrud
 
         }
 
-        $this->whereConnection->setRelations();
+        $this->queryBuldier->setRelations();
 
         //print_r($this->db->get_compiled_select($object::table));die;
 
@@ -303,8 +304,8 @@ abstract class CICrud
 
         $attrToSave = [];
 
-        $hasNtoNConfig = FConfig::hasConfig($object, 'nTon');
-        $isComposition = FConfig::hasConfig($object, 'parentsObjects');
+        $hasNtoNConfig = Config::hasConfig($object, 'nTon');
+        $isComposition = Config::hasConfig($object, 'parentsObjects');
 
         if ($hasNtoNConfig) $muchToMuchConfig = $object::config['nTon'];
         if ($isComposition) $compositionConfig = $object::config['parentsObjects'];
@@ -492,8 +493,8 @@ abstract class CICrud
 
         $table = $object::table;
 
-        $hasNtoNConfig = FConfig::hasConfig($object, 'nTon');
-        $isComposition = FConfig::hasConfig($object, 'parentsObjects');
+        $hasNtoNConfig = Config::hasConfig($object, 'nTon');
+        $isComposition = Config::hasConfig($object, 'parentsObjects');
 
         if ($hasNtoNConfig) {
             $muchToMuchConfig = $object::config['nTon'];
@@ -517,7 +518,7 @@ abstract class CICrud
                         $modelNToN = array_keys($muchToMuchConfig, $key); // OBTENEMOS EL NOMBRE DEL MODELO A INSERTAR
                         $this->_updateNToN($table, $idToGet, $value, $modelNToN[0], $key); // TODO REVISAR
                     } else {
-                        $relationalModel = FConfig::formatModelName($key);
+                        $relationalModel = Config::formatModelName($key);
                         $this->_updateNToN($table, $idToGet, $value, $relationalModel, $key); // TODO REVISAR
                     }
 
@@ -607,7 +608,7 @@ abstract class CICrud
 
         $object = $object->obtain();
 
-        $hasParent = FConfig::hasConfig($object, 'parentsObjects'); // VERIFICAMOS SI HAY CONPOSICIONES DENTRO DE OBJETO
+        $hasParent = Config::hasConfig($object, 'parentsObjects'); // VERIFICAMOS SI HAY CONPOSICIONES DENTRO DE OBJETO
         $serializeObject = serialize($object);
 
         if ($hasParent) {
@@ -856,7 +857,7 @@ abstract class CICrud
             return;
         }
 
-        if (!FConfig::hasConfig($objectInserted, 'nTon')) {
+        if (!Config::hasConfig($objectInserted, 'nTon')) {
             return;
         }
 
@@ -865,7 +866,7 @@ abstract class CICrud
 
         $model = array_search($attr, $config);
 
-        $objectModel = model(FConfig::modelsFolder . $model);
+        $objectModel = model(Config::modelsFolder . $model);
 
         $objectInsertedSetMethod = 'set' . ucfirst($objectInserted::table);
         $setMethod = 'set' . ucfirst($attr);
@@ -919,7 +920,7 @@ abstract class CICrud
      */
     private function _innitWhereConnection (): void
     {
-        $this->whereConnection = new WhereConnection($this->builder);
+        $this->queryBuldier = new QueryBuldier($this->builder);
     }
 
 
@@ -946,7 +947,7 @@ abstract class CICrud
 
                 if ($valueAttribute->getId()) {
 
-                    $this->whereConnection->setWhere(strtolower($attribute) . '.id', $valueAttribute->getId());
+                    $this->queryBuldier->setWhere(strtolower($attribute) . '.id', $valueAttribute->getId());
 
                     $this->_setJoin($objectInner, $tableParent);
 
@@ -960,7 +961,7 @@ abstract class CICrud
 
                             $this->_setJoin($objectInner, $tableParent);
 
-                            $this->whereConnection->setWhere($attribute . '.' . $keyAtt, $valueAtt);
+                            $this->queryBuldier->setWhere($attribute . '.' . $keyAtt, $valueAtt);
 
                         }
 
@@ -974,11 +975,11 @@ abstract class CICrud
 
                     $this->_setJoin($objectInner, $tableParent);
 
-                    $this->whereConnection->setWhere($objectInner::table . '.' . $attribute, $valueAttribute);
+                    $this->queryBuldier->setWhere($objectInner::table . '.' . $attribute, $valueAttribute);
 
                 } else {
 
-                    $this->whereConnection->setWhere('id_' . $objectInner::table, $valueAttribute);
+                    $this->queryBuldier->setWhere('id_' . $objectInner::table, $valueAttribute);
 
                 }
 
@@ -1000,7 +1001,7 @@ abstract class CICrud
             return;
         }
 
-        $this->whereConnection->setInnerJoin($objectInner::table, strtolower($tableParent) . '.id_' . $objectInner::table . " = " . $objectInner::table . ".id");
+        $this->queryBuldier->setInnerJoin($objectInner::table, strtolower($tableParent) . '.id_' . $objectInner::table . " = " . $objectInner::table . ".id");
 
     }
 
@@ -1014,7 +1015,7 @@ abstract class CICrud
     private function _setDefinedRelation (object &$object, string $key): void
     {
 
-        $hasNToNConfig = FConfig::hasConfig($object, 'nTon');
+        $hasNToNConfig = Config::hasConfig($object, 'nTon');
         $nToNConfig = [];
 
         if ($hasNToNConfig) $nToNConfig = $object::config['nTon'];
@@ -1028,7 +1029,7 @@ abstract class CICrud
             $model = array_keys($nToNConfig, $key);
             $model = $model[0];
 
-            $model = model(FConfig::modelsFolder . $model);
+            $model = model(Config::modelsFolder . $model);
 
             $tableToJoin = $model::table; // TABLA A LA CUAL SE DEBE INTRESAR A BUSCAR LA RELACION
 
@@ -1038,9 +1039,9 @@ abstract class CICrud
 
                     if (!is_array($attrValue) && $attrValue !== NULL) { // SI ENCONTRAMOS UN ATRIBUTO CON UN VALOR DEFINIDO
 
-                        $this->whereConnection->setInnerJoin($tableToJoin, strtolower($object::table) . '.id = ' . $tableToJoin . '.id_' . $object::table);
-                        $this->whereConnection->setInnerJoin($key, $tableToJoin . '.id_' . $key . ' = ' . $key . '.id');
-                        $this->whereConnection->setWhere($key . '.' . $attrKey, $attrValue);
+                        $this->queryBuldier->setInnerJoin($tableToJoin, strtolower($object::table) . '.id = ' . $tableToJoin . '.id_' . $object::table);
+                        $this->queryBuldier->setInnerJoin($key, $tableToJoin . '.id_' . $key . ' = ' . $key . '.id');
+                        $this->queryBuldier->setWhere($key . '.' . $attrKey, $attrValue);
 
                     }
 
@@ -1056,8 +1057,8 @@ abstract class CICrud
 
                     if (!is_array($attrValue) && !is_object($attrValue) && $attrValue !== NULL) { // SI ENCONTRAMOS UN ATRIBUTO CON UN VALOR DEFINIDO
 
-                        $this->whereConnection->setInnerJoin($key, strtolower($object::table) . '.id = ' . $objectsToFilter[$i]::table . '.id_' . $object::table);
-                        $this->whereConnection->setWhere($key . '.' . $attrKey, $attrValue);
+                        $this->queryBuldier->setInnerJoin($key, strtolower($object::table) . '.id = ' . $objectsToFilter[$i]::table . '.id_' . $object::table);
+                        $this->queryBuldier->setWhere($key . '.' . $attrKey, $attrValue);
 
                     }
 
@@ -1081,7 +1082,7 @@ abstract class CICrud
     private function _updateNToN (string $nameTableParent, int $idParent, array $objectsInPut, string $modelNToN, string $attrToUpdate): bool
     {
 
-        $modelNToN = model(FConfig::modelsFolder . $modelNToN);
+        $modelNToN = model(Config::modelsFolder . $modelNToN);
         $tableNToN = $modelNToN::table;
 
         $idsInDb = []; // ARREGLO EN DONDE SE GUARDAN LOS ID RELACIONALES QUE ESTAN ACUALMENTE EN DB
