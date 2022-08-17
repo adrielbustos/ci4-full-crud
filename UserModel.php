@@ -6,24 +6,21 @@ use App\Models\CICrud\CICrud;
 
 class UserModel extends CICrud
 {
-    const table = 'user';
-    const config = ['nTon' => [], 'canNull' => [], 'unique' => ['email',], 'index' => [], 'parentsObjects' => [], 'default' => [], 'isDate' => []];
+    // const config = ['nTon' => [], 'canNull' => [], 'unique' => ['email',], 'index' => [], 'parentsObjects' => [], 'default' => [], 'isDate' => []];
     public ?int $id = null;
     public ?string $email = null;
     public ?string $password = null;
-    public ?bool $active = null;
+    public bool $active = false;
 
     public function __construct()
     {
+        $this->table = "user";
         parent::__construct();
-        $this->table = self::table;
+        $this->modelConfig->addUnique("email");
     }
     public function getId(): int
     {
         return (int)$this->id;
-    }
-    public function getTable(): string {
-        return self::table;
     }
     public function setId(int $id): void
     {

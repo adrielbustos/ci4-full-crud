@@ -17,21 +17,24 @@ use CodeIgniter\Database\BaseBuilder;
 use CodeIgniter\Database\BaseConnection;
 
 use Config\Database;
-
+use Error;
 use mysqli_sql_exception;
 
 abstract class CICrud
 {
 
     /**
+     * 
+     * Table model name
+     * 
      * @var string
      */
     protected string $table = '';
 
     /**
-     * @var array
+     * @var ModelConfig
      */
-    public const config = [];
+    protected ModelConfig $modelConfig;
 
     /**
      *
@@ -85,7 +88,13 @@ abstract class CICrud
     protected function __construct (Config $Config = null)
     {
 
+        if ($this->table == "") {
+            throw new Error("The table for the Model can not be a empty string");
+            // throw new Error("The table for the Model " + get_class() + " can not be a empty string");
+        }
+
         $this->db = Database::connect();
+        $this->modelConfig = new ModelConfig();
 
         if (is_null($Config)) {
             $this->config = new Config();
@@ -124,9 +133,9 @@ abstract class CICrud
             $this->config->setIsGetattrScape(true);
         }
 
-        if (defined(get_class($object) . '::config') && $this->config->getRelations)
+        if ($this->config->getRelations)
         {
-            $this->_setConfig($this->table, $object::config, $result[0]);
+            $this->_setConfig($this->table, $object->modelConfig, $result[0]);
         }
 
         return $this->_convertObject(get_class($object), $result[0]);
@@ -171,8 +180,8 @@ abstract class CICrud
 
             $resultObject = (object)$resultArray;
 
-            if (defined(get_class($object) . '::config') && $this->config->getRelations) {
-                $this->_setConfig($this->table, $object::config, $resultObject);
+            if ($this->config->getRelations) {
+                $this->_setConfig($this->table, $object->modelConfig, $resultObject);
             }
 
             $arrayObjects[] = $this->_convertObject(get_class($object), $resultObject);
@@ -262,8 +271,8 @@ abstract class CICrud
 
             foreach ($results as $result) {
 
-                if (defined(get_class($object) . '::config') && $this->config->getRelations) {
-                    $this->_setConfig($this->table, $object::config, $result);
+                if ($this->config->getRelations) {
+                    $this->_setConfig($this->table, $object->modelConfig, $result);
                 }
 
                 $arrayObjects[] = $this->_convertObject(get_class($object), $result);
@@ -299,16 +308,11 @@ abstract class CICrud
 
         $nToNRelation = [];
         $oneToMuchRelation = [];
-        $muchToMuchConfig = [];
-        $compositionConfig = [];
 
         $attrToSave = [];
 
-        $hasNtoNConfig = Config::hasConfig($object, 'nTon');
-        $isComposition = Config::hasConfig($object, 'parentsObjects');
-
-        if ($hasNtoNConfig) $muchToMuchConfig = $object::config['nTon'];
-        if ($isComposition) $compositionConfig = $object::config['parentsObjects'];
+        $manyToMany = $object->modelConfig->getNtoN();
+        $compositionConfig = $object->modelConfig->getParentsObjects();
 
         foreach ($object as $key => $value) {
 
@@ -330,7 +334,7 @@ abstract class CICrud
 
                 case 'array':
 
-                    if (in_array($key, $muchToMuchConfig) && count($value) > 0) {
+                    if (in_array($key, $manyToMany) && count($value) > 0) {
                         $nToNRelation[$key] = $value;
                     } elseif (count($value) > 0) {
                         $oneToMuchRelation[$key] = $value;
@@ -387,8 +391,6 @@ abstract class CICrud
             die; // TODO realizar mensaje a mostrar
         }
 
-        // $this->table = $this->table;
-
         try {
 
             $this->builder->insert($attrToSave);
@@ -396,12 +398,6 @@ abstract class CICrud
             $object->setId($this->db->insertID());
 
             if ($nToNRelation) {
-
-                if (!$hasNtoNConfig) {
-                    print_r("Error a buscar la configuracion del objeto" . PHP_EOL);
-                    print_r($object);
-                    die;
-                }
 
                 foreach ($nToNRelation as $nTn) {
                     $this->_savesNToN($nTn, $object);
@@ -488,21 +484,10 @@ abstract class CICrud
 
         $attrToUpdate = [];
 
-        $muchToMuchConfig = [];
-        $compositionConfig = [];
-
         $table = $this->table;
 
-        $hasNtoNConfig = Config::hasConfig($object, 'nTon');
-        $isComposition = Config::hasConfig($object, 'parentsObjects');
-
-        if ($hasNtoNConfig) {
-            $muchToMuchConfig = $object::config['nTon'];
-        }
-
-        if ($isComposition) {
-            $compositionConfig = $object::config['parentsObjects'];
-        }
+        $manyToMany = $object->modelConfig->getNtoN();
+        $compositionConfig = $object->modelConfig->getParentsObjects();
 
         foreach ($object as $key => $value) {
 
@@ -514,8 +499,8 @@ abstract class CICrud
 
                 case 'array':
 
-                    if ($muchToMuchConfig && in_array($key, $muchToMuchConfig)) { // SI EL ATRIBUTO PERTENECE A LA CONFIGURACION DE N A N
-                        $modelNToN = array_keys($muchToMuchConfig, $key); // OBTENEMOS EL NOMBRE DEL MODELO A INSERTAR
+                    if ($manyToMany && in_array($key, $manyToMany)) { // SI EL ATRIBUTO PERTENECE A LA CONFIGURACION DE N A N
+                        $modelNToN = array_keys($manyToMany, $key); // OBTENEMOS EL NOMBRE DEL MODELO A INSERTAR
                         $this->_updateNToN($table, $idToGet, $value, $modelNToN[0], $key); // TODO REVISAR
                     } else {
                         $relationalModel = Config::formatModelName($key);
@@ -714,7 +699,7 @@ abstract class CICrud
      *
      * @return void
      */
-    private function _setConfig (string $table, array $configObject, object $object): void
+    private function _setConfig (string $table, ModelConfig $configObject, object $object): void
     {
 
         foreach ($configObject as $keyConfig => $valueConfig) {
@@ -726,10 +711,10 @@ abstract class CICrud
                     foreach ($valueConfig as $model => $columnNToN) {
 
                         /**
-                         * @var $relationalModel CICrud
+                         * @var CICrud $relationalModel
                          */
                         $relationalModel = model($this->config::modelsFolder . $model, false);
-                        $tableNtoN = $relationalModel::table;
+                        $tableNtoN = $relationalModel->getTable();
 
                         $query = "SELECT `$columnNToN`.*";
                         $query .= "FROM `$tableNtoN`";
@@ -1275,10 +1260,12 @@ abstract class CICrud
      * -------------------------------------------------------------------------
      */
 
+    public function getTable(): string {
+        return $this->table;
+    }
+
     public abstract function getId(): int;
     public abstract function setId(int $id): void;
-
-    public abstract function getTable(): string;
 
     public abstract function obtain ();
 

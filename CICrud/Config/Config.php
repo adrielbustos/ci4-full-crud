@@ -169,18 +169,14 @@ class Config implements ProjectConfig {
     public static function hasConfig(CICrud $object, string $configName):bool
     {
 
-        if ( !in_array($configName, self::configsAvailable) ) {
+        if ( !property_exists($object, $configName) ) {
             return false;
         }
 
         $hasConfig = true;
 
-        if ( defined( get_class($object).'::config' ) ){
-
-            if ( !key_exists($configName, $object::config) ) {
-                $hasConfig = false;
-            }
-
+        if ( !key_exists($configName, $object::config) ) {
+            $hasConfig = false;
         } else {
 
             $hasConfig = false;
