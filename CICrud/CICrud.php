@@ -73,6 +73,9 @@ abstract class CICrud
      * @var array
      */
     private const attrScape = [
+        'table',
+        'config',
+        'ModelConfig',
         'BaseConnection',
         'Config',
         'BaseBuilder',
@@ -122,7 +125,7 @@ abstract class CICrud
         if ($idToGet === NULL || $idToGet === 0) return new $nameOfClass();
 
         $this->builder = $this->db->table($this->table);
-        $this->builder->where('id', $idToGet);
+        $this->builder->where('id', $idToGet); // TODO check this
         $result = $this->builder->get()->getResult();
 
         if (!$result) return new $nameOfClass();
@@ -345,7 +348,6 @@ abstract class CICrud
                 case 'object':
 
                     if (
-                        !method_exists($value, 'getId') or
                         in_array(get_class($value), self::attrScape)
                     ) {
                         break;
@@ -452,7 +454,7 @@ abstract class CICrud
                     throw new ValueNotNull($notNull[1]);
 
                 default:
-                    throw new IndeterminateError();
+                    throw new IndeterminateError($message);
             }
 
         }
@@ -755,17 +757,18 @@ abstract class CICrud
 
         $attrToDelete = $this->config->getAttrEscape();
         unset($destination->$attrToDelete);
-
+        
         foreach ($destination as $nameAttr => $valueAttr)
         {
-
+            
             $type = gettype($valueAttr);
-
+            
             switch ($type) {
-
+                
                 case 'array':
                     // TODO REVISAR PORQUE HAY QUE HACER UN GET WHERE DE LOS FILTROS PARA OBTENER EL ARRAY COMPLETO Y VALIDAR SI EXISTE EL ID_ EN LA OTRA TABLA
                     // $destination->$nameAttr[] ="HAY QUE HACER UN GET WHERE DE LOS FILTROS PARA OBTENER EL ARRAY COMPLETO Y VALIDAR SI EXISTE EL ID_ EN LA OTRA TABLA";
+                    
                     // break;
                     if (
                         !$this->config->getArraySubModels ||
@@ -787,9 +790,10 @@ abstract class CICrud
 
                 case 'object':
 
+                    if (!$valueAttr instanceof CICrud) break;
+
                     if (
-                        !$this->config->getRelations ||
-                        !defined(get_class($valueAttr) . '::config')
+                        !$this->config->getRelations
                     ) break;
 
                     if (!$this->config->canAddRecursive()) break; // CASO ESPECIAL PORQUE EN CASO QUE SEA TRUE SE LE AGREGAR A UN NUMERO
@@ -810,8 +814,9 @@ abstract class CICrud
                 default:
                     if (property_exists($sourceObject, $nameAttr) && !is_null($sourceObject->$nameAttr))
                     {
-                        $setMethod = 'set' . ucfirst($nameAttr);
-                        $destination->$setMethod($sourceObject->$nameAttr);
+                        // $setMethod = 'set' . ucfirst($nameAttr);
+                        // $destination->$setMethod($sourceObject->$nameAttr);
+                        $destination->$nameAttr = $sourceObject->$nameAttr;
                     }
                     break;
 

@@ -6,12 +6,12 @@ use App\Models\CICrud\ErrorCodes;
 class IndeterminateError extends BaseException
 {
 
-    public function __construct()
+    public function __construct($msg = "")
     {
 
         //$last_query = $this->db->last_query();
         $last_query = 'sdafasdf';
-        parent::__construct('IndeterminateError', ErrorCodes::INDETERMINATEERROR);
+        parent::__construct($msg, ErrorCodes::INDETERMINATEERROR);
         log_message('info', 'IndeterminateError: ' . $last_query);
         $this->typeError = 'IndeterminateError';
 
