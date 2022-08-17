@@ -112,7 +112,7 @@ abstract class CICrud
 
         if ($idToGet === NULL || $idToGet === 0) return new $nameOfClass();
 
-        $this->builder = $this->db->table($object::table);
+        $this->builder = $this->db->table($this->table);
         $this->builder->where('id', $idToGet);
         $result = $this->builder->get()->getResult();
 
@@ -126,7 +126,7 @@ abstract class CICrud
 
         if (defined(get_class($object) . '::config') && $this->config->getRelations)
         {
-            $this->_setConfig($object::table, $object::config, $result[0]);
+            $this->_setConfig($this->table, $object::config, $result[0]);
         }
 
         return $this->_convertObject(get_class($object), $result[0]);
@@ -150,7 +150,7 @@ abstract class CICrud
     protected function getAllObjects (CICrud $object, int $limitCount = 10, int $startIn = 0, string $orderBy = ""): array
     {
 
-        $this->builder = $this->db->table($object::table);
+        $this->builder = $this->db->table($this->table);
         $arrayQueryParams = self::_getQueryOrderBy($object, $orderBy);
         foreach ($arrayQueryParams as $queryParamKey => $queryParamValue) {
             $this->builder->orderBy($queryParamKey, $queryParamValue);
@@ -172,7 +172,7 @@ abstract class CICrud
             $resultObject = (object)$resultArray;
 
             if (defined(get_class($object) . '::config') && $this->config->getRelations) {
-                $this->_setConfig($object::table, $object::config, $resultObject);
+                $this->_setConfig($this->table, $object::config, $resultObject);
             }
 
             $arrayObjects[] = $this->_convertObject(get_class($object), $resultObject);
@@ -195,9 +195,9 @@ abstract class CICrud
     protected function getObjectWhere (CICrud $object, int $limitCount = 10, int $startIn = 0, string $orderBy = ""): array
     {
 
-        $this->builder = $this->db->table($object::table);
+        $this->builder = $this->db->table($this->table);
 
-        $this->builder->select($object::table . '.*');
+        $this->builder->select($this->table . '.*');
 
         $arrayQueryParams = self::_getQueryOrderBy($object, $orderBy);
         foreach ($arrayQueryParams as $queryParamKey => $queryParamValue) {
@@ -220,16 +220,16 @@ abstract class CICrud
                     if (!self::_isValidObject($value)) break;
 
                     //if ( Config::recursiveSearch ) {
-                    //    $this->_setInnerJoin($value, $object::table);
+                    //    $this->_setInnerJoin($value, $this->table);
                     //}
 
-                    $this->_setInnerJoin($value, $object::table);
+                    $this->_setInnerJoin($value, $this->table);
 
                     break;
 
                 case 'string':
 
-                    $this->builder->like($object::table . "." . $key, $value);
+                    $this->builder->like($this->table . "." . $key, $value);
 
                     break;
 
@@ -243,7 +243,7 @@ abstract class CICrud
 
                 default:
 
-                    $this->builder->where($object::table . "." . $key, $value);
+                    $this->builder->where($this->table . "." . $key, $value);
 
                     break;
             }
@@ -252,7 +252,7 @@ abstract class CICrud
 
         $this->queryBuldier->setRelations();
 
-        //print_r($this->db->get_compiled_select($object::table));die;
+        //print_r($this->db->get_compiled_select($this->table));die;
 
         $results = $this->builder->get()->getResult();
 
@@ -263,7 +263,7 @@ abstract class CICrud
             foreach ($results as $result) {
 
                 if (defined(get_class($object) . '::config') && $this->config->getRelations) {
-                    $this->_setConfig($object::table, $object::config, $result);
+                    $this->_setConfig($this->table, $object::config, $result);
                 }
 
                 $arrayObjects[] = $this->_convertObject(get_class($object), $result);
@@ -295,7 +295,7 @@ abstract class CICrud
     protected function saveObject (CICrud $object): int
     {
 
-        $this->builder = $this->db->table($object::table);
+        $this->builder = $this->db->table($this->table);
 
         $nToNRelation = [];
         $oneToMuchRelation = [];
@@ -387,7 +387,7 @@ abstract class CICrud
             die; // TODO realizar mensaje a mostrar
         }
 
-        // $this->table = $object::table;
+        // $this->table = $this->table;
 
         try {
 
@@ -484,14 +484,14 @@ abstract class CICrud
             return false;
         }
 
-        $this->builder = $this->db->table($object::table);
+        $this->builder = $this->db->table($this->table);
 
         $attrToUpdate = [];
 
         $muchToMuchConfig = [];
         $compositionConfig = [];
 
-        $table = $object::table;
+        $table = $this->table;
 
         $hasNtoNConfig = Config::hasConfig($object, 'nTon');
         $isComposition = Config::hasConfig($object, 'parentsObjects');
@@ -573,7 +573,7 @@ abstract class CICrud
         }
 
         $this->builder->where('id', $idToGet);
-        // print_r( $this->db->get_compiled_update($object::table) );die;
+        // print_r( $this->db->get_compiled_update($this->table) );die;
 
         if ($this->builder->update()) {
             return TRUE;
@@ -604,7 +604,7 @@ abstract class CICrud
             return FALSE;
         }
 
-        $this->builder = $this->db->table($object::table);
+        $this->builder = $this->db->table($this->table);
 
         $object = $object->obtain();
 
@@ -620,7 +620,7 @@ abstract class CICrud
             $parentObject = $object->$getMethod();
 
             if (!$parentObject->remove($parentObject->getid())) {
-                print_r('Error al eliminar la composicion: ' . $object::table);
+                print_r('Error al eliminar la composicion: ' . $this->table);
                 die;
                 //return FALSE;
             } else {
@@ -654,7 +654,7 @@ abstract class CICrud
 
                 case 1451:
 
-                    throw new FKDeleteError($idToDelete, $object::table);
+                    throw new FKDeleteError($idToDelete, $this->table);
 
                 default:
                     print_r('Errores no controlados: ' . PHP_EOL);
@@ -951,7 +951,7 @@ abstract class CICrud
 
                     $this->_setJoin($objectInner, $tableParent);
 
-                    $this->_setInnerJoin($valueAttribute, $objectInner::table);
+                    $this->_setInnerJoin($valueAttribute, $objectInner->table);
 
                 } else {
 
@@ -971,15 +971,15 @@ abstract class CICrud
 
             } else {
 
-                if ($objectInner::table !== $tableParent) { // VALIDAMOS QUE EL OBJETO NO TENGA UN ATRIBUTO DE SI MISMO
+                if ($objectInner->table !== $tableParent) { // VALIDAMOS QUE EL OBJETO NO TENGA UN ATRIBUTO DE SI MISMO
 
                     $this->_setJoin($objectInner, $tableParent);
 
-                    $this->queryBuldier->setWhere($objectInner::table . '.' . $attribute, $valueAttribute);
+                    $this->queryBuldier->setWhere($objectInner->table . '.' . $attribute, $valueAttribute);
 
                 } else {
 
-                    $this->queryBuldier->setWhere('id_' . $objectInner::table, $valueAttribute);
+                    $this->queryBuldier->setWhere('id_' . $objectInner->table, $valueAttribute);
 
                 }
 
@@ -997,11 +997,11 @@ abstract class CICrud
     private function _setJoin (object $objectInner, string $tableParent): void
     {
 
-        if ($objectInner::table === $tableParent) {
+        if ($objectInner->table === $tableParent) {
             return;
         }
 
-        $this->queryBuldier->setInnerJoin($objectInner::table, strtolower($tableParent) . '.id_' . $objectInner::table . " = " . $objectInner::table . ".id");
+        $this->queryBuldier->setInnerJoin($objectInner->table, strtolower($tableParent) . '.id_' . $objectInner->table . " = " . $objectInner->table . ".id");
 
     }
 
@@ -1039,7 +1039,7 @@ abstract class CICrud
 
                     if (!is_array($attrValue) && $attrValue !== NULL) { // SI ENCONTRAMOS UN ATRIBUTO CON UN VALOR DEFINIDO
 
-                        $this->queryBuldier->setInnerJoin($tableToJoin, strtolower($object::table) . '.id = ' . $tableToJoin . '.id_' . $object::table);
+                        $this->queryBuldier->setInnerJoin($tableToJoin, strtolower($this->table) . '.id = ' . $tableToJoin . '.id_' . $this->table);
                         $this->queryBuldier->setInnerJoin($key, $tableToJoin . '.id_' . $key . ' = ' . $key . '.id');
                         $this->queryBuldier->setWhere($key . '.' . $attrKey, $attrValue);
 
@@ -1057,7 +1057,7 @@ abstract class CICrud
 
                     if (!is_array($attrValue) && !is_object($attrValue) && $attrValue !== NULL) { // SI ENCONTRAMOS UN ATRIBUTO CON UN VALOR DEFINIDO
 
-                        $this->queryBuldier->setInnerJoin($key, strtolower($object::table) . '.id = ' . $objectsToFilter[$i]::table . '.id_' . $object::table);
+                        $this->queryBuldier->setInnerJoin($key, strtolower($this->table) . '.id = ' . $objectsToFilter[$i]::table . '.id_' . $this->table);
                         $this->queryBuldier->setWhere($key . '.' . $attrKey, $attrValue);
 
                     }

@@ -1,50 +1,42 @@
 <?php
 
 namespace App\Models\CICrud\Config;
+use App\Models\CICrud\CICrud;
 
 class Config implements ProjectConfig {
 
     /**
-     * DETERMINA SI SE REALIZA LA BUSQUEDA DE OBJETOS INTERNOS
-     * @var bool
-     */
-    public bool $recursiveSearch = ProjectConfig::limitRecursiveSearch;
-
-
-    /**
-     * LIMITE DEL RANGO DE BUSQUEDA DE LOS MODELOS INTERNOS
+     * Determines if can search internal models
      * @var int
      */
     public int $limitRecursiveSearch = ProjectConfig::limitRecursiveSearch;
 
+    /**
+     * Used for know the actual recursive sub model
+     * @var int
+     */
     private int $_recursiveNow = 0;
 
 
     /**
-     * BUSCAR MODELOS RELACIONALES DE TIPO N A N
+     * Search for N to N relations
      * @var bool
      */
     public bool $getRelations = ProjectConfig::getRelations;
 
 
     /**
-     * BUSCAR LOS MODELOS RELACIONALES DE TIPO UNO A N
+     * Search for ONE to N relations
      * @var bool
      */
     public bool $getArraySubModels = ProjectConfig::getArraySubModels;
 
 
     /**
-     * ATRIBUTO QUE SE USA PARA NO GENERAR UN BULCE INFINITO
+     * They are used to control the actual attribute and not generate an infinity bucle
      * @var string
      */
     private string $attrScape = '';
-
-
-    /**
-     * ATRIBUTO QUE SE USA PARA NO GENERAR UN BULCE INFINITO
-     * @var boolean
-     */
     private bool $isGetAttrScape = false;
 
 
@@ -174,10 +166,10 @@ class Config implements ProjectConfig {
      * @param string $formatType
      * @return string
      */
-    public static function hasConfig(object $object, string $nameConfig):bool
+    public static function hasConfig(CICrud $object, string $configName):bool
     {
 
-        if ( !in_array($nameConfig, self::configsAvailable) ) {
+        if ( !in_array($configName, self::configsAvailable) ) {
             return false;
         }
 
@@ -185,7 +177,7 @@ class Config implements ProjectConfig {
 
         if ( defined( get_class($object).'::config' ) ){
 
-            if ( !key_exists($nameConfig, $object::config) ) {
+            if ( !key_exists($configName, $object::config) ) {
                 $hasConfig = false;
             }
 
@@ -197,7 +189,7 @@ class Config implements ProjectConfig {
 
         if ( $hasConfig ) {
 
-            if ( $object::config[$nameConfig] === [] ) {
+            if ( $object::config[$configName] === [] ) {
                 $hasConfig = false;
             }
 
