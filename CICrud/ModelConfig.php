@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models\CICrud;
+use Error;
 
 class ModelConfig {
 
@@ -8,6 +9,7 @@ class ModelConfig {
     *
     */
     private array $nTon = [];
+    private bool $findNtoN = true;
 
     /**
     *
@@ -23,6 +25,11 @@ class ModelConfig {
     *
     */
     private array $index = [];
+
+    /**
+     * Combinated Index for unique in MySql DB
+     */
+    private array $combinatedIndex = [];
 
     /**
     *
@@ -70,7 +77,26 @@ class ModelConfig {
     }
 
     /**
-    * 
+     * @var array<string> $params
+     */
+    public function addCombinatedIndex(array $params): void {
+        foreach ($params as $value) {
+            if (gettype($value) != "string") {
+                throw new Error("$value should be a string");
+            }
+        }
+        $this->combinatedIndex[] = $params;
+    }
+
+    /**
+     * 
+     */
+    public function getCombindatedIndex(): array {
+        return $this->combinatedIndex;
+    }
+
+    /**
+    * @return array<string>
     */
     public function getParentsObjects(): array {
         return $this->parentsObjects;
@@ -93,8 +119,13 @@ class ModelConfig {
     /**
     *
     */
-    public function addNtoN(string $nToNModel, string $property) {
+    public function addNtoN(string $nToNModel, string $property, bool $find = true) {
         $this->nTon[$nToNModel] = $property;
+        $this->findNtoN = $find;
+    }
+
+    public function getFindNtoN(): bool {
+        return $this->findNtoN;
     }
 
     /**

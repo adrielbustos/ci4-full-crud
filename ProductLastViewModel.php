@@ -4,61 +4,59 @@ namespace App\Models;
 
 use App\Models\CICrud\CICrud;
 
-class UserModel extends CICrud
+class ProductLastViewModel extends CICrud
 {
     public ?int $id = null;
-    public ?string $email = null;
-    public ?string $password = null;
-    public array $productlastview = [];
-    public bool $active = false;
+    public ?ProductModel $product = null;
+    public ?UserModel $user = null;
 
     public function __construct()
     {
-        $this->table = "user";
+        $this->table = "productlastview";
         parent::__construct();
-        $this->modelConfig->addUnique("email");
-        $this->modelConfig->addNtoN("ProductLastViewModel", "productlastview");
+        $this->modelConfig->addCombinatedIndex(["product", "user"]);
+        
+        $this->product = new ProductModel();
+        $this->user = new UserModel();
     }
+    
     public function getId(): int
     {
         return (int)$this->id;
     }
+    
     public function setId(int $id): void
     {
         $this->id = $id;
     }
-    public function getEmail(): string
+    
+    public function getProduct(): ProductModel
     {
-        return (string)$this->email;
+        return $this->product;
     }
-    public function setEmail(string $email)
+    
+    public function setProduct(ProductModel $product): void
     {
-        $this->email = $email;
-    }
-    public function getPassword(): string
-    {
-        return (string)$this->password;
-    }
-    public function setPassword(string $password)
-    {
-        $this->password = $password;
-    }
-    public function getActive(): bool
-    {
-        return (bool)$this->active;
-    }
-    public function setActive(bool $active)
-    {
-        $this->active = $active;
+        $this->$product = $product;
     }
 
+    public function getUser(): UserModel
+    {
+        return $this->user;
+    }
+    
+    public function setUser(UserModel $user): void
+    {
+        $this->$user = $user;
+    }
+    
     /*
     | -------------------------------------------------------------------------
     | GET`S
     | -------------------------------------------------------------------------
     */
 
-    public function obtain(): UserModel
+    public function obtain(): ProductLastViewModel
     {
         return parent::getObject($this);
     }

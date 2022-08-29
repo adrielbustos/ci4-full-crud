@@ -4,61 +4,45 @@ namespace App\Models;
 
 use App\Models\CICrud\CICrud;
 
-class UserModel extends CICrud
+class MarketModel extends CICrud
 {
     public ?int $id = null;
-    public ?string $email = null;
-    public ?string $password = null;
-    public array $productlastview = [];
-    public bool $active = false;
+    public ?string $name = null;
 
     public function __construct()
     {
-        $this->table = "user";
+        $this->table = "market";
         parent::__construct();
-        $this->modelConfig->addUnique("email");
-        $this->modelConfig->addNtoN("ProductLastViewModel", "productlastview");
+        $this->modelConfig->addUnique("name");
     }
+    
     public function getId(): int
     {
         return (int)$this->id;
     }
+    
     public function setId(int $id): void
     {
         $this->id = $id;
     }
-    public function getEmail(): string
+    
+    public function getName(): string
     {
-        return (string)$this->email;
+        return $this->name;
     }
-    public function setEmail(string $email)
+    
+    public function setName(string $name)
     {
-        $this->email = $email;
+        $this->name = $name;
     }
-    public function getPassword(): string
-    {
-        return (string)$this->password;
-    }
-    public function setPassword(string $password)
-    {
-        $this->password = $password;
-    }
-    public function getActive(): bool
-    {
-        return (bool)$this->active;
-    }
-    public function setActive(bool $active)
-    {
-        $this->active = $active;
-    }
-
+    
     /*
     | -------------------------------------------------------------------------
     | GET`S
     | -------------------------------------------------------------------------
     */
 
-    public function obtain(): UserModel
+    public function obtain(): MarketModel
     {
         return parent::getObject($this);
     }

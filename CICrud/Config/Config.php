@@ -58,26 +58,6 @@ class Config implements ProjectConfig {
      */
     public const modelsFolder = '';
 
-
-    /**
-     * List of config available in Fireback
-     *
-     * @var array
-     *
-     */
-    private const configsAvailable = [
-        'nTon' => TRUE,
-        'canNull' => TRUE,
-        'unique' => TRUE,
-        'index' => TRUE,
-        'parentsObjects' => TRUE,
-        'default' => TRUE,
-        'isDate' => TRUE,
-        'isTime' => TRUE, // TODO FALTA IMPLEMENTAR
-        'isDatetime' => TRUE // TODO FALTA IMPLEMENTAR
-    ];
-
-
     /**
      * FConfig constructor.
      */
@@ -108,7 +88,7 @@ class Config implements ProjectConfig {
 
     public function setAttrEscape(string $attrScape)
     {
-        $this->attrScape = strtolower(str_replace('Model', '', $attrScape));;
+        $this->attrScape = strtolower(str_replace('Model', '', $attrScape));
     }
 
     public function getAttrEscape():string

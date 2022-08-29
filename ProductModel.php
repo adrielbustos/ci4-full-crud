@@ -13,12 +13,14 @@ class ProductModel extends CICrud {
     public ?float $weight = null;
     public ?float $price = null;
     public ?WeightTypeModel $weightType = null;
+    public array $productlastview = [];
 
     public function __construct()
     {
         $this->table = "product";
         parent::__construct();
         $this->modelConfig->addUnique("code");
+        $this->modelConfig->addNtoN("ProductLastViewModel", "productlastview", false);
 
         $this->weightType = new WeightTypeModel();
     }

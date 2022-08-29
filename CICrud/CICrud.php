@@ -19,14 +19,13 @@ use CodeIgniter\Database\BaseConnection;
 use Config\Database;
 use Error;
 use mysqli_sql_exception;
+use stdClass;
 
 abstract class CICrud
 {
 
     /**
-     * 
      * Table model name
-     * 
      * @var string
      */
     protected string $table = '';
@@ -37,25 +36,19 @@ abstract class CICrud
     protected ModelConfig $modelConfig;
 
     /**
-     *
      * Load the project config
-     *
      * @var Config
      */
     private Config $config;
 
     /**
-     *
      * DB Connector
-     *
      * @var BaseConnection
      */
     private BaseConnection $db;
 
     /**
-     *
      * Query Builder
-     *
      */
     private BaseBuilder $builder;
 
@@ -138,7 +131,7 @@ abstract class CICrud
 
         if ($this->config->getRelations)
         {
-            $this->_setConfig($this->table, $object->modelConfig, $result[0]);
+            $this->_setConfig($this->table, $result[0]);
         }
 
         return $this->_convertObject(get_class($object), $result[0]);
@@ -184,7 +177,7 @@ abstract class CICrud
             $resultObject = (object)$resultArray;
 
             if ($this->config->getRelations) {
-                $this->_setConfig($this->table, $object->modelConfig, $resultObject);
+                $this->_setConfig($this->table, $resultObject);
             }
 
             $arrayObjects[] = $this->_convertObject(get_class($object), $resultObject);
@@ -275,7 +268,7 @@ abstract class CICrud
             foreach ($results as $result) {
 
                 if ($this->config->getRelations) {
-                    $this->_setConfig($this->table, $object->modelConfig, $result);
+                    $this->_setConfig($this->table, $result);
                 }
 
                 $arrayObjects[] = $this->_convertObject(get_class($object), $result);
@@ -595,15 +588,16 @@ abstract class CICrud
 
         $object = $object->obtain();
 
-        $hasParent = Config::hasConfig($object, 'parentsObjects'); // VERIFICAMOS SI HAY CONPOSICIONES DENTRO DE OBJETO
+        $hasParent = $this->modelConfig->getParentsObjects();
         $serializeObject = serialize($object);
 
-        if ($hasParent) {
+        if (count($hasParent) > 0) {
 
-            $compositionConfig = $object::config['parentsObjects'];
-
-            $parentName = $compositionConfig[0];
+            $parentName = $hasParent[0];
             $getMethod = 'get' . ucwords($parentName);
+            /**
+             * @var CICrud parentObject
+             */
             $parentObject = $object->$getMethod();
 
             if (!$parentObject->remove($parentObject->getid())) {
@@ -696,44 +690,56 @@ abstract class CICrud
      * REALIZA LA BUSQUEDA Y LLENA EL OBJETO CON SUS RELACIONES HAS MANY.
      *
      * @param string $table Tabla del objeto que realiza la busqueda
-     * @param array $configObject The config model
-     * @param object $object El objeto result el cual tiene la informacion
+     * @param object $object El objeto result el cual tiene la informacion, NO TIENE LAS RELACIONES N TO N
      *
      * @return void
      */
-    private function _setConfig (string $table, ModelConfig $configObject, object $object): void
+    private function _setConfig (string $table, object $object): void
     {
 
-        foreach ($configObject as $keyConfig => $valueConfig) {
+        if (!$this->modelConfig->getFindNtoN()) {
+            return;
+        }
 
-            switch ($keyConfig) {
+        $config = $this->modelConfig->getNtoN();
 
-                case 'n_n':
+        foreach ($config as $model => $columnNToN) {
 
-                    foreach ($valueConfig as $model => $columnNToN) {
+            /**
+            * @var CICrud $relationalModel
+            */
+            $relationalModel = model($this->config::modelsFolder . $model, false);
+            $tableNtoN = $relationalModel->getTable();
 
-                        /**
-                         * @var CICrud $relationalModel
-                         */
-                        $relationalModel = model($this->config::modelsFolder . $model, false);
-                        $tableNtoN = $relationalModel->getTable();
+            $query = "SELECT `$tableNtoN`.* ";
+            $query .= "FROM `$tableNtoN` ";
+            // $query .= "INNER JOIN `$columnNToN` ON `$tableNtoN`.`id_$columnNToN` = `$columnNToN`.`id` ";
+            $query .= "WHERE `$tableNtoN`.`id_$table` = " . $object->id;
 
-                        $query = "SELECT `$columnNToN`.*";
-                        $query .= "FROM `$tableNtoN`";
-                        $query .= "INNER JOIN `$columnNToN` ON `$tableNtoN`.`id_$columnNToN` = `$columnNToN`.`id`";
-                        $query .= "WHERE `$tableNtoN`.`id_$table` = " . $object->getId();
+            $nToNResult = $this->db->query($query);
 
-                        $nToNResult = $this->db->query($query);
+            $result = $nToNResult->getResult();
+            $object->$columnNToN = [];
+            if (count($result) === 0) {
+                return;
+            }
 
-                        $object->$columnNToN = $nToNResult->getResult(); // TODO REVISAR SI HAY QUE CONVERTIRLO A FMODEL
-
+            foreach ($result as $nToNObj) {
+                foreach ($nToNObj as $property => $value) {
+                    $property = str_replace('id_', '', $property);
+                    if (property_exists($relationalModel, $property)) {
+                        if ($relationalModel->$property instanceof CICrud) {
+                            $relationalModel->$property->id = $value;
+                        } else {
+                            $relationalModel->$property = $value;
+                        }
                     }
-
-                    break;
-
+                }
+                $object->$columnNToN[] = $relationalModel;
             }
 
         }
+
 
     }
 
@@ -752,7 +758,7 @@ abstract class CICrud
     {
 
         if ($needImportModel) $destination .= 'Model';
-
+        echo $destination;
         $destination = model($this->config::modelsFolder . $destination, false);
 
         $attrToDelete = $this->config->getAttrEscape();
@@ -777,10 +783,12 @@ abstract class CICrud
                     ) break;
 
                     if (!$this->config->canAddRecursive()) break; // CASO ESPECIAL PORQUE EN CASO QUE SEA TRUE SE LE AGREGAR A UN NUMERO
-
+                    
                     $arrayModelType = ucfirst($nameAttr);
+                    // echo $arrayModelType;die;
                     foreach ($sourceObject->$nameAttr as $relationObject)
                     {
+                        // print_r($relationObject);die;
                         $destination->$nameAttr[] = $this->_convertObject($arrayModelType, $relationObject, true);
                     }
 
@@ -798,10 +806,11 @@ abstract class CICrud
 
                     if (!$this->config->canAddRecursive()) break; // CASO ESPECIAL PORQUE EN CASO QUE SEA TRUE SE LE AGREGAR A UN NUMERO
 
-                    $idSourceObject = 'id_' . $nameAttr;
                     //$objectInCache = $this->Cache->getObjectIsExists(get_class($valueAttr), $sourceObject->$idSourceObject);
                     //if ( $objectInCache === false ) {
-                    $valueAttr->setId($sourceObject->$idSourceObject);
+                        // print_r($sourceObject->$nameAttr);die;
+                        // echo $nameAttr;die;
+                    $valueAttr->$nameAttr = $sourceObject->$nameAttr;
                     $objectInCache = $valueAttr->obtain();
                     //$this->Cache->addObject($objectInCache);
                     //}
@@ -847,13 +856,13 @@ abstract class CICrud
             return;
         }
 
-        if (!Config::hasConfig($objectInserted, 'nTon')) {
+        $config = $this->modelConfig->getNtoN();
+
+        if (count($config) === 0) {
             return;
         }
 
-        $config = $objectInserted::config['nTon'];
         $attr = $objectsToSave[0]::table;
-
         $model = array_search($attr, $config);
 
         $objectModel = model(Config::modelsFolder . $model);
@@ -1005,16 +1014,13 @@ abstract class CICrud
     private function _setDefinedRelation (object &$object, string $key): void
     {
 
-        $hasNToNConfig = Config::hasConfig($object, 'nTon');
-        $nToNConfig = [];
-
-        if ($hasNToNConfig) $nToNConfig = $object::config['nTon'];
+        $nToNConfig = $this->modelConfig->getNtoN();
 
         $getMethod = 'get' . ucwords($key); // METODO GET DEL ATRIBUTO RELACIONAL
         $objectsToFilter = $object->$getMethod(); // OBTENEMOS EL ARREGLO QUE TIENE LOS OBJETOS A FILTRAR
         $objectsToFilterCount = count($objectsToFilter);
 
-        if ($hasNToNConfig && in_array($key, $nToNConfig)) { // SI ENTRA ES PORQUE ENCONTRO UN ATRIBUTO QUE CORRESPONDE A UNA RELACION N A N
+        if (in_array($key, $nToNConfig)) { // SI ENTRA ES PORQUE ENCONTRO UN ATRIBUTO QUE CORRESPONDE A UNA RELACION N A N
 
             $model = array_keys($nToNConfig, $key);
             $model = $model[0];
