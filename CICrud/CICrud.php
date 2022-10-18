@@ -33,13 +33,13 @@ abstract class CICrud
     /**
      * @var ModelConfig
      */
-    protected ModelConfig $modelConfig;
+    protected ModelConfig $config;
 
     /**
      * Load the project config
      * @var Config
      */
-    private Config $config;
+    private Config $projectConfig;
 
     /**
      * DB Connector
@@ -69,6 +69,7 @@ abstract class CICrud
         'table',
         'config',
         'ModelConfig',
+        'projectConfig',
         'BaseConnection',
         'Config',
         'BaseBuilder',
@@ -86,16 +87,15 @@ abstract class CICrud
 
         if ($this->table == "") {
             throw new Error("The table for the Model can not be a empty string");
-            // throw new Error("The table for the Model " + get_class() + " can not be a empty string");
         }
 
         $this->db = Database::connect();
-        $this->modelConfig = new ModelConfig();
+        $this->config = new ModelConfig();
 
         if (is_null($Config)) {
-            $this->config = new Config();
+            $this->projectConfig = new Config();
         } else {
-            $this->config = $Config;
+            $this->projectConfig = $Config;
         }
 
     }
@@ -123,13 +123,13 @@ abstract class CICrud
 
         if (!$result) return new $nameOfClass();
 
-        if (!$this->config->getIsSetAttrScape())
+        if (!$this->projectConfig->getIsSetAttrScape())
         {
-            $this->config->setAttrEscape(get_class($object));
-            $this->config->setIsGetattrScape(true);
+            $this->projectConfig->setAttrEscape(get_class($object));
+            $this->projectConfig->setIsGetattrScape(true);
         }
 
-        if ($this->config->getRelations)
+        if ($this->projectConfig->getRelations)
         {
             $this->_setConfig($this->table, $result[0]);
         }
@@ -163,12 +163,12 @@ abstract class CICrud
         // if (!$arrayQueryParams) $this->querySelect = $this->builder->orderBy('id', 'DESC'); // TODO habilitar?
 
         $result = $this->builder->get($limitCount, $startIn)->getResult();
-
+        
         if (!$result) {
             return [];
         }
 
-        $this->config->setAttrEscape(get_class($object));
+        $this->projectConfig->setAttrEscape(get_class($object));
 
         $arrayObjects = [];
 
@@ -176,7 +176,7 @@ abstract class CICrud
 
             $resultObject = (object)$resultArray;
 
-            if ($this->config->getRelations) {
+            if ($this->projectConfig->getRelations) {
                 $this->_setConfig($this->table, $resultObject);
             }
 
@@ -240,7 +240,7 @@ abstract class CICrud
 
                 case 'array':
 
-                    if ($this->config->getArraySubModels || $this->config->getRelations) {
+                    if ($this->projectConfig->getArraySubModels || $this->projectConfig->getRelations) {
                         $this->_setDefinedRelation($object, $key);
                     }
 
@@ -267,7 +267,7 @@ abstract class CICrud
 
             foreach ($results as $result) {
 
-                if ($this->config->getRelations) {
+                if ($this->projectConfig->getRelations) {
                     $this->_setConfig($this->table, $result);
                 }
 
@@ -588,7 +588,7 @@ abstract class CICrud
 
         $object = $object->obtain();
 
-        $hasParent = $this->modelConfig->getParentsObjects();
+        $hasParent = $this->config->getParentsObjects();
         $serializeObject = serialize($object);
 
         if (count($hasParent) > 0) {
@@ -697,41 +697,50 @@ abstract class CICrud
     private function _setConfig (string $table, object $object): void
     {
 
-        if (!$this->modelConfig->getFindNtoN()) {
+        if (!$this->config->getFindNtoN()) {
             return;
         }
 
-        $config = $this->modelConfig->getNtoN();
-
+        $config = $this->config->getNtoN();
+        
         foreach ($config as $model => $columnNToN) {
 
             /**
             * @var CICrud $relationalModel
             */
-            $relationalModel = model($this->config::modelsFolder . $model, false);
+            $relationalModel = model($this->projectConfig::modelsFolder . $model, false);
             $tableNtoN = $relationalModel->getTable();
 
+            /**
+             * @var string $query Query string to find the relational model
+             */
             $query = "SELECT `$tableNtoN`.* ";
             $query .= "FROM `$tableNtoN` ";
-            // $query .= "INNER JOIN `$columnNToN` ON `$tableNtoN`.`id_$columnNToN` = `$columnNToN`.`id` ";
             $query .= "WHERE `$tableNtoN`.`id_$table` = " . $object->id;
 
+            /**
+             * Run query
+             */
             $nToNResult = $this->db->query($query);
-
             $result = $nToNResult->getResult();
+            
+            /**
+             * return if the array is empty
+             */
             $object->$columnNToN = [];
             if (count($result) === 0) {
                 return;
             }
-
-            foreach ($result as $nToNObj) {
-                foreach ($nToNObj as $property => $value) {
+            
+            /**
+             * add ids to the internal model
+             */
+            foreach ($result as $relationalModelObj) {
+                foreach ($relationalModelObj as $property => $value) {
                     $property = str_replace('id_', '', $property);
                     if (property_exists($relationalModel, $property)) {
                         if ($relationalModel->$property instanceof CICrud) {
                             $relationalModel->$property->id = $value;
-                        } else {
-                            $relationalModel->$property = $value;
                         }
                     }
                 }
@@ -758,10 +767,9 @@ abstract class CICrud
     {
 
         if ($needImportModel) $destination .= 'Model';
-        echo $destination;
-        $destination = model($this->config::modelsFolder . $destination, false);
+        $destination = model($this->projectConfig::modelsFolder . $destination, false);
 
-        $attrToDelete = $this->config->getAttrEscape();
+        $attrToDelete = $this->projectConfig->getAttrEscape();
         unset($destination->$attrToDelete);
         
         foreach ($destination as $nameAttr => $valueAttr)
@@ -776,47 +784,54 @@ abstract class CICrud
                     // $destination->$nameAttr[] ="HAY QUE HACER UN GET WHERE DE LOS FILTROS PARA OBTENER EL ARRAY COMPLETO Y VALIDAR SI EXISTE EL ID_ EN LA OTRA TABLA";
                     
                     // break;
+                    
                     if (
-                        !$this->config->getArraySubModels ||
+                        !$this->projectConfig->getArraySubModels ||
                         !property_exists($sourceObject, $nameAttr) ||
                         (count($sourceObject->$nameAttr) === 0)
                     ) break;
 
-                    if (!$this->config->canAddRecursive()) break; // CASO ESPECIAL PORQUE EN CASO QUE SEA TRUE SE LE AGREGAR A UN NUMERO
                     
-                    $arrayModelType = ucfirst($nameAttr);
-                    // echo $arrayModelType;die;
+                    if (!$this->projectConfig->canAddRecursive()) break; // CASO ESPECIAL PORQUE EN CASO QUE SEA TRUE SE LE AGREGAR A UN NUMERO
+                    
+                    
                     foreach ($sourceObject->$nameAttr as $relationObject)
                     {
-                        // print_r($relationObject);die;
-                        $destination->$nameAttr[] = $this->_convertObject($arrayModelType, $relationObject, true);
+                        // $destination->$nameAttr[] = $this->_convertObject(ucfirst($nameAttr), $relationObject, true);
                     }
 
-                    $this->config->subRecursive();
+                    $this->projectConfig->subRecursive();
 
                     break;
 
                 case 'object':
-
+                    /**
+                     * valueAttr es el objeto vacio donde hay que poner la info
+                     * sourceObject es el objeto donde viene la info
+                     */
                     if (!$valueAttr instanceof CICrud) break;
 
                     if (
-                        !$this->config->getRelations
+                        !$this->projectConfig->getRelations
                     ) break;
 
-                    if (!$this->config->canAddRecursive()) break; // CASO ESPECIAL PORQUE EN CASO QUE SEA TRUE SE LE AGREGAR A UN NUMERO
+                    if (!$this->projectConfig->canAddRecursive()) break; // CASO ESPECIAL PORQUE EN CASO QUE SEA TRUE SE LE AGREGAR A UN NUMERO
+
+                    // print_r($valueAttr);die;
+                    // $prop = str_replace("_id", "", $nameAttr);
+                    print_r($sourceObject);die;
+                    print_r($sourceObject->$nameAttr);die;
 
                     //$objectInCache = $this->Cache->getObjectIsExists(get_class($valueAttr), $sourceObject->$idSourceObject);
                     //if ( $objectInCache === false ) {
                         // print_r($sourceObject->$nameAttr);die;
-                        // echo $nameAttr;die;
-                    $valueAttr->$nameAttr = $sourceObject->$nameAttr;
+                    $valueAttr = $sourceObject->$nameAttr;
                     $objectInCache = $valueAttr->obtain();
                     //$this->Cache->addObject($objectInCache);
                     //}
                     $destination->$nameAttr = $objectInCache;
 
-                    $this->config->subRecursive();
+                    $this->projectConfig->subRecursive();
 
                     break;
 
@@ -856,7 +871,7 @@ abstract class CICrud
             return;
         }
 
-        $config = $this->modelConfig->getNtoN();
+        $config = $this->config->getNtoN();
 
         if (count($config) === 0) {
             return;
@@ -1014,7 +1029,7 @@ abstract class CICrud
     private function _setDefinedRelation (object &$object, string $key): void
     {
 
-        $nToNConfig = $this->modelConfig->getNtoN();
+        $nToNConfig = $this->config->getNtoN();
 
         $getMethod = 'get' . ucwords($key); // METODO GET DEL ATRIBUTO RELACIONAL
         $objectsToFilter = $object->$getMethod(); // OBTENEMOS EL ARREGLO QUE TIENE LOS OBJETOS A FILTRAR

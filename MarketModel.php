@@ -13,7 +13,7 @@ class MarketModel extends CICrud
     {
         $this->table = "market";
         parent::__construct();
-        $this->modelConfig->addUnique("name");
+        $this->config->addUnique("name");
     }
     
     public function getId(): int

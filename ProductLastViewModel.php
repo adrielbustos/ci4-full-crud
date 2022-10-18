@@ -14,7 +14,7 @@ class ProductLastViewModel extends CICrud
     {
         $this->table = "productlastview";
         parent::__construct();
-        $this->modelConfig->addCombinatedIndex(["product", "user"]);
+        $this->config->addCombinatedIndex(["product", "user"]);
         
         $this->product = new ProductModel();
         $this->user = new UserModel();

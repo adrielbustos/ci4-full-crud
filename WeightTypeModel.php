@@ -13,7 +13,7 @@ class WeightTypeModel extends CICrud {
     {
         $this->table = "weighttype";
         parent::__construct();
-        $this->modelConfig->addIndex("name");
+        $this->config->addIndex("name");
     }
 
     public function getId(): int

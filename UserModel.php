@@ -16,8 +16,8 @@ class UserModel extends CICrud
     {
         $this->table = "user";
         parent::__construct();
-        $this->modelConfig->addUnique("email");
-        $this->modelConfig->addNtoN("ProductLastViewModel", "productlastview");
+        $this->config->addUnique("email");
+        $this->config->addNtoN("ProductLastViewModel", "productlastview");
     }
     public function getId(): int
     {

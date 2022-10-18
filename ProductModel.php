@@ -19,15 +19,15 @@ class ProductModel extends CICrud {
     {
         $this->table = "product";
         parent::__construct();
-        $this->modelConfig->addUnique("code");
-        $this->modelConfig->addNtoN("ProductLastViewModel", "productlastview", false);
+        $this->config->addUnique("code");
+        $this->config->addNtoN("ProductLastViewModel", "productlastview", false);
 
         $this->weightType = new WeightTypeModel();
     }
 
     public function getId(): int
     {
-        return (int)$this->id;
+        return $this->id;
     }
 
     public function setId(int $id): void
